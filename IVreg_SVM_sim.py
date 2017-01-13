@@ -15,7 +15,6 @@ from sklearn import linear_model
 from sklearn import model_selection
 from sklearn import preprocessing
 
-#test:
 
 class IVreg_sim:
     def __init__(self, n=500, mis=0, endog=np.array([0]), simpoly=1, estpoly=1,\
@@ -179,10 +178,10 @@ class IVreg_1stSVR_Est:
         self.n_IV = self.IV.shape[1]
         if kernel=='rbf':
             self.param_grid = [\
-            {'C': [10,100,1000,10000], 'gamma': [.1,.01,.001,.0001], 'kernel': [ kernel ]},]
+            {'C': [10,100,1000,10000], 'gamma': [1.,.1,.01,.001,.0001], 'kernel': [ kernel ]},]
         if kernel=='linear':
             self.param_grid = [\
-            {'C': [1,10,100], 'kernel': [ kernel ]},]
+            {'C': [.1,1,10,100], 'kernel': [ kernel ]},]
         
     def Est(self):
         x_scaler=preprocessing.StandardScaler()
@@ -374,6 +373,14 @@ class IVreg_GMM_Est:
 
 
 if __name__=='__main__':
+    
+    def save_obj(obj, name ):
+        with open('obj/'+ name + '.pkl', 'wb') as f:
+            pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
+
+    def load_obj(name ):
+        with open('obj/' + name + '.pkl', 'rb') as f:
+            return pickle.load(f)
     setting_sim_temp={}
     setting_sim_temp['n']=[500, 2000]
     setting_sim_temp['mis']=[0]        
@@ -421,7 +428,7 @@ if __name__=='__main__':
     sys.exit()
     '''
     results_all=[]
-    rep = 10
+    rep = 100
     
     for setting_est in setting_ests:
         for setting_sim in setting_sims:
@@ -501,6 +508,8 @@ if __name__=='__main__':
                       'bhat_ols_mean':np.mean(bhat_ols,axis=0) ,'bhat_2sls_mean':np.mean(bhat_2sls,axis=0),'bhat_svm1_linear_mean':np.mean(bhat_svm1_linear,axis=0),'bhat_svm1_rbf_mean':np.mean(bhat_svm1_rbf,axis=0),'bhat_svm2_mean':np.mean(bhat_svm2,axis=0),\
                       'bhat_ols_std':np.std(bhat_ols,axis=0) ,'bhat_2sls_std':np.std(bhat_2sls,axis=0),'bhat_svm1_linear_std':np.std(bhat_svm1_linear,axis=0),'bhat_svm1_rbf_std':np.std(bhat_svm1_rbf,axis=0),'bhat_svm2_std':np.std(bhat_svm2,axis=0)}
             results_all.append(result)
+            
+    np.save('results_all.npy',results_all)
     
 
         
