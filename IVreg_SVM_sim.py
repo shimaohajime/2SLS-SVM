@@ -14,7 +14,7 @@ from sklearn import svm
 from sklearn import linear_model
 from sklearn import model_selection
 from sklearn import preprocessing
-
+import pandas as pd
 
 class IVreg_sim:
     def __init__(self, n=500, mis=0, endog=np.array([0]), simpoly=1, estpoly=1,\
@@ -208,7 +208,60 @@ class IVreg_1stSVR_Est:
         lr2.fit(x_pred,y_scaled)
         self.bhat_svm1 = lr2.coef_
         self.EstResult = {'bhat':self.bhat_svm1}
- 
+
+        
+        
+        
+        
+class IVreg_1stRT_Est: #Regression Tree
+    def __init__(self, Data, add_const_x, iv_RC, endg_col, **kwargs):
+        self.x = Data['x']            
+        self.y = Data['y']
+        self.iv = Data['iv']                
+        self.n, self.n_char = self.x.shape
+        self.n_iv = self.iv.shape[1]
+        if add_const_x==True:
+            self.x = np.c_[np.ones(self.n), self.x]
+            self.iv = np.c_[np.ones(self.n), self.iv]
+        if iv_RC==True:
+            self.iv = np.c_[self.iv, Data['dummy']]
+            
+        
+        self.endg_col = endg_col
+        self.exog_col = np.delete( np.arange(self.n_char), self.endg_col)
+        
+        self.IV = np.c_[ self.x[:,self.exog_col],self.iv ]
+        self.n_IV = self.IV.shape[1]
+        self.param_grid = [{'max_depth': [5,10,'None'], 'min_samples_split': [1.,.1,.01,.001,.0001], 'kernel': [ kernel ]},]
+        
+    def Est(self):
+        x_scaler=preprocessing.StandardScaler()
+        #x_scaled=x_scaler.fit_transform(data['x'])
+        x_scaled=self.x        
+        y_scaler=preprocessing.StandardScaler()
+        #y_scaled=y_scaler.fit_transform(data['y'].reshape(-1, 1))        
+        y_scaled=self.y
+        IV_scaler=preprocessing.StandardScaler()
+        #IV_scaled=self.IV        
+        IV_scaled=IV_scaler.fit_transform(self.IV)
+         
+        self.bhat_svm1=np.zeros(self.n_char)
+
+        x_pred = np.zeros_like(x_scaled)
+        x_pred[:] = x_scaled[:]
+        for j in self.endg_col:
+            RT = svm.SVR()
+            gridsearch = model_selection.GridSearchCV(svr_rbf,param_grid=self.param_grid,refit=True)
+            gridsearch.fit(IV_scaled,x_scaled[:,j])
+            x_pred[:,j]=gridsearch.predict(IV_scaled)  
+        print(gridsearch.best_estimator_)
+        lr2=linear_model.LinearRegression(fit_intercept=False)
+        lr2.fit(x_pred,y_scaled)
+        self.bhat_svm1 = lr2.coef_
+        self.EstResult = {'bhat':self.bhat_svm1}        
+        
+        
+        
 class IVreg_2stageSVR_Est:
     def __init__(self, Data, add_const_x, endg_col, kernel, **kwargs):
         self.x = Data['x']            
@@ -374,13 +427,7 @@ class IVreg_GMM_Est:
 
 if __name__=='__main__':
     
-    def save_obj(obj, name ):
-        with open('obj/'+ name + '.pkl', 'wb') as f:
-            pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
 
-    def load_obj(name ):
-        with open('obj/' + name + '.pkl', 'rb') as f:
-            return pickle.load(f)
     setting_sim_temp={}
     setting_sim_temp['n']=[500, 2000]
     setting_sim_temp['mis']=[0]        
@@ -429,7 +476,7 @@ if __name__=='__main__':
     '''
     results_all=[]
     rep = 100
-    
+    start=time.time()
     for setting_est in setting_ests:
         for setting_sim in setting_sims:
             bhat_ols=np.zeros([rep,setting_sim['N_char'] + setting_est['add_const_x'] ])
@@ -508,10 +555,30 @@ if __name__=='__main__':
                       'bhat_ols_mean':np.mean(bhat_ols,axis=0) ,'bhat_2sls_mean':np.mean(bhat_2sls,axis=0),'bhat_svm1_linear_mean':np.mean(bhat_svm1_linear,axis=0),'bhat_svm1_rbf_mean':np.mean(bhat_svm1_rbf,axis=0),'bhat_svm2_mean':np.mean(bhat_svm2,axis=0),\
                       'bhat_ols_std':np.std(bhat_ols,axis=0) ,'bhat_2sls_std':np.std(bhat_2sls,axis=0),'bhat_svm1_linear_std':np.std(bhat_svm1_linear,axis=0),'bhat_svm1_rbf_std':np.std(bhat_svm1_rbf,axis=0),'bhat_svm2_std':np.std(bhat_svm2,axis=0)}
             results_all.append(result)
-            
+    end = time.time()
+    time_calc = end-start
+    print('Total Time:'+str(time_calc))
+        
     np.save('results_all.npy',results_all)
     
+    #Generate table
+    OLS=[]
+    TSLS=[]
+    SVR_LS_linear=[]
+    SVR_LS_RBF=[]
+    for result in results_all:
+        OLS.extend([result['bhat_ols_mean'][0], '('+str(result['bhat_ols_std'][0])+')' ] )
+        TSLS.extend([result['bhat_2sls_mean'][0], '('+str( result['bhat_2sls_std'][0] )+')' ] )
+        SVR_LS_linear.extend([result['bhat_svm1_linear_mean'][0], '('+str( result['bhat_svm1_linear_std'][0] )+')' ] )
+        SVR_LS_RBF.extend([result['bhat_svm1_rbf_mean'][0], '('+str( result['bhat_svm1_rbf_std'][0] )+')' ] )
+    results_dict = {'0OLS':OLS, '2SLS':TSLS, 'SVR-LS (linear)':SVR_LS_linear, 'SVR-LS (rbf)':SVR_LS_RBF}
+    df_index=[]
+    for i in range(n_settings):
+        df_index.extend( [ 'setting'+str(i),''  ] )
+    df = pd.DataFrame( results_dict, index=df_index )
+    with open('SVM_results_table.tex','w') as output:
+        output.write(df.to_latex())
+        
+    
 
-        
-        
         
