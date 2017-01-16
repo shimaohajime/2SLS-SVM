@@ -21,7 +21,7 @@ class IVreg_sim:
                  alpha=0., N_inst=10, N_char=5,\
                  var_eps_x=1., var_eps_y=1., var_eps_xy=3.,\
                  mean_z=1., var_z=1., add_const_x=False, add_const_z=False,\
-                 ivfunc='linear', ivpoly=3,ivpoly_coeff=np.array([1.,-1.,-1.]) ,savedata=0,\
+                 ivfunc='linear',ivpoly_coeff=np.array([1.,-1.,-1.]) ,savedata=0,\
                  iv_RC=False, n_ind=10, iv_RC_var=1.  #Panel Data
                  ):
         
@@ -39,7 +39,7 @@ class IVreg_sim:
         self.mis=mis        
         self.endog = endog
         
-        self.ivpoly = ivpoly        
+        self.ivpoly = ivpoly_coeff.size        
         self.simpoly = simpoly        
         self.estpoly = estpoly        
         self.alpha=alpha
@@ -447,8 +447,6 @@ if __name__=='__main__':
 
     #setting_sim['endog'] = np.arange(setting_sim['N_char'])
     setting_sim_temp['endog'] = [np.array([0])]
-    setting_sim_temp['ivpoly']=[3]
-    #setting_sim['ivpoly']=1
     setting_sim_temp['ivfunc']=['linear']
     setting_sim_temp['ivpoly_coeff'] =[np.array([1.,-1.,-1.])]       
     #setting_sim['ivpoly_coeff'] =np.array([1.])       
@@ -475,7 +473,7 @@ if __name__=='__main__':
     sys.exit()
     '''
     results_all=[]
-    rep = 100
+    rep = 2
     start=time.time()
     for setting_est in setting_ests:
         for setting_sim in setting_sims:
