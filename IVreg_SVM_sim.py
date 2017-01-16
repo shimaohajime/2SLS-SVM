@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats
 import time
+import datetime
 import sys
 import itertools
 from sklearn import svm
@@ -448,7 +449,7 @@ if __name__=='__main__':
     #setting_sim['endog'] = np.arange(setting_sim['N_char'])
     setting_sim_temp['endog'] = [np.array([0])]
     setting_sim_temp['ivfunc']=['linear']
-    setting_sim_temp['ivpoly_coeff'] =[np.array([1.,-1.,-1.])]       
+    setting_sim_temp['ivpoly_coeff'] =[np.array([1.]),np.array([1.,0.,-.52,0.,.016])]       
     #setting_sim['ivpoly_coeff'] =np.array([1.])       
     #Panel Data
     setting_sim_temp['iv_RC']=[True]
@@ -556,8 +557,8 @@ if __name__=='__main__':
     end = time.time()
     time_calc = end-start
     print('Total Time:'+str(time_calc))
-        
-    np.save('results_all.npy',results_all)
+    DateCalc=datetime.date.today().strftime('%b-%d-%Y')
+    np.save('results_all_'+DateCalc+'.npy',results_all)
     
     #Generate table
     OLS=[]
@@ -574,7 +575,7 @@ if __name__=='__main__':
     for i in range(n_settings):
         df_index.extend( [ 'setting'+str(i),''  ] )
     df = pd.DataFrame( results_dict, index=df_index )
-    with open('SVM_results_table.tex','w') as output:
+    with open('SVM_results_table_'+DateCalc+'.tex','w') as output:
         output.write(df.to_latex())
         
     
