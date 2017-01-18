@@ -159,7 +159,7 @@ class IVreg_sim:
         
         
 class IVreg_1stSVR_Est:
-    def __init__(self, Data, add_const_x, iv_RC, endg_col, kernel, **kwargs):
+    def __init__(self, Data, add_const_x, iv_RC, endg_col, kernel, n_cv=3, **kwargs):
         self.x = Data['x']            
         self.y = Data['y']
         self.iv = Data['iv']                
@@ -183,7 +183,8 @@ class IVreg_1stSVR_Est:
         if kernel=='linear':
             self.param_grid = [\
             {'C': [.1,1,10,100], 'kernel': [ kernel ]},]
-        
+        self.n_cv=n_cv
+            
     def Est(self):
         x_scaler=preprocessing.StandardScaler()
         #x_scaled=x_scaler.fit_transform(data['x'])
@@ -201,7 +202,7 @@ class IVreg_1stSVR_Est:
         x_pred[:] = x_scaled[:]
         for j in self.endg_col:
             svr_rbf = svm.SVR()
-            gridsearch = model_selection.GridSearchCV(svr_rbf,param_grid=self.param_grid,refit=True)
+            gridsearch = model_selection.GridSearchCV(svr_rbf,param_grid=self.param_grid,refit=True, cv=self.n_cv)
             gridsearch.fit(IV_scaled,x_scaled[:,j])
             x_pred[:,j]=gridsearch.predict(IV_scaled)  
         print(gridsearch.best_estimator_)
@@ -482,6 +483,7 @@ if __name__=='__main__':
             bhat_2sls=np.zeros([rep,setting_sim['N_char']  + setting_est['add_const_x'] ])
             bhat_svm1_linear=np.zeros([rep,setting_sim['N_char']  + setting_est['add_const_x'] ])
             bhat_svm1_rbf=np.zeros([rep,setting_sim['N_char']  + setting_est['add_const_x'] ])
+            bhat_svm1_rbf_cv5=np.zeros([rep,setting_sim['N_char']  + setting_est['add_const_x'] ])
             
             lin_svm2 = np.zeros([rep, 50 ,setting_sim['N_char']  + setting_est['add_const_x'] ])
             y_svm2 = np.zeros([rep, 50 ,setting_sim['N_char']  + setting_est['add_const_x'] ])
@@ -510,12 +512,20 @@ if __name__=='__main__':
                 
                 #SVM first stage + linear regression second stage
                 ##BRF kernel
+                ###cv=3
                 data_svm1_rbf=data
                 #if setting_est['add_const_x']==True:
                 #    data_svm1['x'] = np.c_[ np.ones(setting_sim['n'] ), data_svm1['x']  ]
                 est_svm1_rbf = IVreg_1stSVR_Est(data_svm1_rbf, kernel='rbf', **setting_est)
                 est_svm1_rbf.Est()
                 bhat_svm1_rbf[i,:] = est_svm1_rbf.EstResult['bhat']
+                ###cv=5
+                data_svm1_rbf=data
+                #if setting_est['add_const_x']==True:
+                #    data_svm1['x'] = np.c_[ np.ones(setting_sim['n'] ), data_svm1['x']  ]
+                est_svm1_rbf_cv5 = IVreg_1stSVR_Est(data_svm1_rbf, kernel='rbf', n_cv=5,**setting_est)
+                est_svm1_rbf_cv5.Est()
+                bhat_svm1_rbf_cv5[i,:] = est_svm1_rbf_cv5.EstResult['bhat']
                 ##Linear kernel
                 data_svm1_linear=data
                 #if setting_est['add_const_x']==True:
@@ -524,6 +534,7 @@ if __name__=='__main__':
                 est_svm1_linear.Est()
                 bhat_svm1_linear[i,:] = est_svm1_linear.EstResult['bhat']
                 
+                '''
                 #2stage SVM
                 ##RBF kernel
                 data_svm2=data
@@ -541,18 +552,23 @@ if __name__=='__main__':
                     bhat_svm2[i,j] = lr2.coef_
                 
                 #plt.plot(est_svm2.lin[:,0], est_svm2.y_pred_ME[:,0])
-            
+                '''
             print(setting_sim)
             print(setting_est)
             print('bhat_ols:%s' %np.mean(bhat_ols,axis=0) )    
             print('bhat_2sls:%s' %np.mean(bhat_2sls,axis=0) )
             print('bhat_svm1_linear:%s' %np.mean(bhat_svm1_linear,axis=0) )
             print('bhat_svm1_rbf:%s' %np.mean(bhat_svm1_rbf,axis=0) )
-            print('bhat_svm2:%s' %np.mean(bhat_svm2,axis=0) )
-        
+            #print('bhat_svm2:%s' %np.mean(bhat_svm2,axis=0) )
+            '''
             result = {'setting_sim':setting_sim,'setting_est':setting_est,'bhat_ols':bhat_ols,'bhat_2sls':bhat_2sls,'bhat_svm1_linear':bhat_svm1_linear,'bhat_svm1_rbf':bhat_svm1_rbf,'bhat_svm2':bhat_svm2,\
                       'bhat_ols_mean':np.mean(bhat_ols,axis=0) ,'bhat_2sls_mean':np.mean(bhat_2sls,axis=0),'bhat_svm1_linear_mean':np.mean(bhat_svm1_linear,axis=0),'bhat_svm1_rbf_mean':np.mean(bhat_svm1_rbf,axis=0),'bhat_svm2_mean':np.mean(bhat_svm2,axis=0),\
                       'bhat_ols_std':np.std(bhat_ols,axis=0) ,'bhat_2sls_std':np.std(bhat_2sls,axis=0),'bhat_svm1_linear_std':np.std(bhat_svm1_linear,axis=0),'bhat_svm1_rbf_std':np.std(bhat_svm1_rbf,axis=0),'bhat_svm2_std':np.std(bhat_svm2,axis=0)}
+            '''
+            result = {'setting_sim':setting_sim,'setting_est':setting_est,'bhat_ols':bhat_ols,'bhat_2sls':bhat_2sls,'bhat_svm1_linear':bhat_svm1_linear,'bhat_svm1_rbf':bhat_svm1_rbf,'bhat_svm1_rbf_cv5':bhat_svm1_rbf_cv5,\
+                      'bhat_ols_mean':np.mean(bhat_ols,axis=0) ,'bhat_2sls_mean':np.mean(bhat_2sls,axis=0),'bhat_svm1_linear_mean':np.mean(bhat_svm1_linear,axis=0),'bhat_svm1_rbf_mean':np.mean(bhat_svm1_rbf,axis=0),'bhat_svm1_rbf_cv5_mean':np.mean(bhat_svm1_rbf_cv5,axis=0),\
+                      'bhat_ols_std':np.std(bhat_ols,axis=0) ,'bhat_2sls_std':np.std(bhat_2sls,axis=0),'bhat_svm1_linear_std':np.std(bhat_svm1_linear,axis=0),'bhat_svm1_rbf_std':np.std(bhat_svm1_rbf,axis=0),'bhat_svm1_rbf_cv5_std':np.std(bhat_svm1_rbf_cv5,axis=0)}
+            
             results_all.append(result)
     end = time.time()
     time_calc = end-start
@@ -565,12 +581,15 @@ if __name__=='__main__':
     TSLS=[]
     SVR_LS_linear=[]
     SVR_LS_RBF=[]
+    SVR_LS_RBF_cv5=[]
+    
     for result in results_all:
         OLS.extend([result['bhat_ols_mean'][0], '('+str(result['bhat_ols_std'][0])+')' ] )
         TSLS.extend([result['bhat_2sls_mean'][0], '('+str( result['bhat_2sls_std'][0] )+')' ] )
         SVR_LS_linear.extend([result['bhat_svm1_linear_mean'][0], '('+str( result['bhat_svm1_linear_std'][0] )+')' ] )
         SVR_LS_RBF.extend([result['bhat_svm1_rbf_mean'][0], '('+str( result['bhat_svm1_rbf_std'][0] )+')' ] )
-    results_dict = {'0OLS':OLS, '2SLS':TSLS, 'SVR-LS (linear)':SVR_LS_linear, 'SVR-LS (rbf)':SVR_LS_RBF}
+        SVR_LS_RBF_cv5.extend([result['bhat_svm1_rbf_cv5_mean'][0], '('+str( result['bhat_svm1_rbf_cv5_std'][0] )+')' ] )
+    results_dict = {'0OLS':OLS, '2SLS':TSLS, 'SVR-LS (linear)':SVR_LS_linear, 'SVR-LS (rbf), cv=3':SVR_LS_RBF, 'SVR-LS (rbf),cv=5':SVR_LS_RBF_cv5}
     df_index=[]
     for i in range(n_settings):
         df_index.extend( [ 'setting'+str(i),''  ] )
