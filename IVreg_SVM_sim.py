@@ -40,11 +40,7 @@ class IVreg_sim:
         self.mis=mis        
         self.endog = endog
         
-<<<<<<< HEAD
         self.ivpoly = ivpoly_coeff.size       
-=======
-        self.ivpoly = ivpoly_coeff.size        
->>>>>>> 40619a7b09ee33fbe41a568492a069a6617468ac
         self.simpoly = simpoly        
         self.estpoly = estpoly        
         self.alpha=alpha
