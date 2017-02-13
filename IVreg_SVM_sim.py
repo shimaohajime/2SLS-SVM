@@ -42,8 +42,6 @@ class IVreg_sim:
             self.ind = np.repeat( np.arange(self.n_ind), self.n_period )
             self.period = np.tile( np.arange(self.n_period), self.n_ind )
             self.iv_RC_var = iv_RC_var
-            
-        
         
         self.mis=mis        
         self.endog = endog
@@ -101,7 +99,7 @@ class IVreg_sim:
         '''
         genpoly = preprocessing.PolynomialFeatures(degree=self.ivpoly, include_bias=self.add_const_z)
         z_poly = genpoly.fit_transform(z)
-        self.N_inst_total = self.z_poly.shape[1]
+        self.N_inst_total = z_poly.shape[1]
         '''
         if self.ivpoly_coeff is None:
             x_data =  np.repeat( np.sum(z_poly,axis=1),  self.N_char).reshape([self.n, self.N_char])+eps_x
@@ -201,6 +199,7 @@ class IVreg_1stSVR_Est:
         
         self.IV = np.c_[ self.x[:,self.exog_col],self.iv ]
         self.n_IV = self.IV.shape[1]
+
         if kernel=='rbf':
             self.param_grid = [\
             {'C': C, 'gamma': gamma, 'kernel': [ kernel ]},]
@@ -226,6 +225,7 @@ class IVreg_1stSVR_Est:
         x_pred[:] = x_scaled[:]
         for j in self.endg_col:
             svr_rbf = svm.SVR()
+            
             gridsearch = model_selection.GridSearchCV(svr_rbf,param_grid=self.param_grid,refit=True, cv=self.n_cv)
             gridsearch.fit(IV_scaled,x_scaled[:,j])
             x_pred[:,j]=gridsearch.predict(IV_scaled)  
@@ -432,7 +432,7 @@ if __name__=='__main__':
     #setting_sim_temp['ivfunc']=['linear']
     #setting_sim_temp['ivpoly_coeff'] =[np.array([1.]),np.array([1.,0.,-.52,0.,.016])]
     setting_sim_temp['ivpoly'] = [3]           
-    setting_sim_temp['ivpoly_coeff'] = 'random'       
+    setting_sim_temp['ivpoly_coeff'] = ['random']       
     #setting_sim['ivpoly_coeff'] =np.array([1.])       
     #Panel Data
     setting_sim_temp['iv_RC']=[True]
@@ -451,6 +451,24 @@ if __name__=='__main__':
     setting_ests = model_selection.ParameterGrid(setting_est_temp)
 
     n_settings = len(list(setting_sims)) * len(list(setting_ests))
+    
+    #setting for each method
+    setting_est_ols_temp = {}
+    setting_est_ols_temp['poly'] = [1]
+    setting_est_2sls_temp = {}
+    setting_est_2sls_temp['poly'] = [1]
+    setting_est_svm1_temp = {}
+    setting_est_svm1_temp['C'] = [[10],[10e4],[10,10e2,10e3,10e4]]
+    setting_est_svm1_temp['gamma'] = [[1.],[10e-4],[1.,.1,10e-2,10e-3,10e-4]]
+    setting_est_svm1_temp['n_cv'] = [3]
+    
+    setting_est_ols = model_selection.ParameterGrid(setting_est_ols_temp)
+    setting_est_2sls = model_selection.ParameterGrid(setting_est_2sls_temp)
+    setting_est_svm1 = model_selection.ParameterGrid(setting_est_svm1_temp)
+    n_setting_ols = len(list(setting_est_ols))
+    n_setting_2sls = len(list(setting_est_2sls))
+    n_setting_svm1 = len(list(setting_est_svm1))
+    
     '''
     for i in setting_sims:
         print(i)
@@ -461,16 +479,23 @@ if __name__=='__main__':
     start=time.time()
     for setting_est in setting_ests:
         for setting_sim in setting_sims:
+            
+            '''
             bhat_ols=np.zeros([rep,setting_sim['N_char'] + setting_est['add_const_x'] ])
             bhat_2sls=np.zeros([rep,setting_sim['N_char']  + setting_est['add_const_x'] ])
             bhat_svm1_linear=np.zeros([rep,setting_sim['N_char']  + setting_est['add_const_x'] ])
             bhat_svm1_rbf=np.zeros([rep,setting_sim['N_char']  + setting_est['add_const_x'] ])
             bhat_svm1_rbf_cv5=np.zeros([rep,setting_sim['N_char']  + setting_est['add_const_x'] ])
             '''
+            '''
             lin_svm2 = np.zeros([rep, 50 ,setting_sim['N_char']  + setting_est['add_const_x'] ])
             y_svm2 = np.zeros([rep, 50 ,setting_sim['N_char']  + setting_est['add_const_x'] ])
             bhat_svm2=np.zeros([rep,setting_sim['N_char']  + setting_est['add_const_x'] ])
             '''
+            bhat_ols=np.zeros([rep,setting_sim['N_char'] + setting_est['add_const_x'],  n_setting_ols])
+            bhat_2sls=np.zeros([rep,setting_sim['N_char']  + setting_est['add_const_x'], n_setting_2sls ])
+            bhat_svm1_rbf=np.zeros([rep,setting_sim['N_char']  + setting_est['add_const_x'], n_setting_svm1 ])
+            
             for i in range(rep):
                 print('rep: '+str(i))
                 sim = IVreg_sim(**setting_sim)
@@ -478,45 +503,37 @@ if __name__=='__main__':
                 data = sim.Data
         
                 #OLS
-                lr1=linear_model.LinearRegression(fit_intercept=setting_est['add_const_x'])
-                lr1.fit(data['x'],data['y'])
-                if setting_est['add_const_x']:
-                    bhat_ols[i,:] = np.insert(lr1.coef_,0, lr1.intercept_)
-                if setting_est['add_const_x']==False:
-                    bhat_ols[i,:] = lr1.coef_
+                i_setting_ols=0
+                for set_ols in setting_est_ols:
+                    lr1=linear_model.LinearRegression(fit_intercept=setting_est['add_const_x'])
+                    
+                    lr1.fit(data['x'],data['y'])
+                    if setting_est['add_const_x']:
+                        bhat_ols[i,:,i_setting_ols] = np.insert(lr1.coef_,0, lr1.intercept_)
+                    if setting_est['add_const_x']==False:
+                        bhat_ols[i,:,i_setting_ols] = lr1.coef_
+                    i_setting_ols=i_setting_ols+1
                 
                 #2sls
-                data_2sls=data
-                #if setting_est['add_const_x']==True:
-                #    data_2sls['x'] = np.c_[ np.ones(setting_sim['n'] ), data_2sls['x']  ]
-                est_2sls = IVreg_GMM_Est(data_2sls, **setting_est)
-                est_2sls.Est()
-                bhat_2sls[i,:] = est_2sls.EstResult['bhat']
+                data_2sls = data
+                i_setting_2sls=0                
+                for set_2sls in setting_est_2sls:
+                    est_2sls = IVreg_GMM_Est(data_2sls, iv_poly=set_2sls['poly'], **setting_est)
+                    est_2sls.Est()
+                    bhat_2sls[i,:,i_setting_2sls] = est_2sls.EstResult['bhat']
+                    i_setting_2sls=i_setting_2sls+1
                 
                 #SVM first stage + linear regression second stage
                 ##BRF kernel
-                ###cv=3
                 data_svm1_rbf=data
-                #if setting_est['add_const_x']==True:
-                #    data_svm1['x'] = np.c_[ np.ones(setting_sim['n'] ), data_svm1['x']  ]
-                est_svm1_rbf = IVreg_1stSVR_Est(data_svm1_rbf, kernel='rbf', **setting_est)
-                est_svm1_rbf.Est()
-                bhat_svm1_rbf[i,:] = est_svm1_rbf.EstResult['bhat']
-                ###cv=5
-                data_svm1_rbf=data
-                #if setting_est['add_const_x']==True:
-                #    data_svm1['x'] = np.c_[ np.ones(setting_sim['n'] ), data_svm1['x']  ]
-                est_svm1_rbf_cv5 = IVreg_1stSVR_Est(data_svm1_rbf, kernel='rbf', n_cv=5,**setting_est)
-                est_svm1_rbf_cv5.Est()
-                bhat_svm1_rbf_cv5[i,:] = est_svm1_rbf_cv5.EstResult['bhat']
-                ##Linear kernel
-                data_svm1_linear=data
-                #if setting_est['add_const_x']==True:
-                #    data_svm1['x'] = np.c_[ np.ones(setting_sim['n'] ), data_svm1['x']  ]
-                est_svm1_linear = IVreg_1stSVR_Est(data_svm1_linear, kernel='linear', **setting_est)
-                est_svm1_linear.Est()
-                bhat_svm1_linear[i,:] = est_svm1_linear.EstResult['bhat']
-                
+                i_setting_svm1=0
+                for set_svm1 in setting_est_svm1:
+                    
+                    est_svm1_rbf = IVreg_1stSVR_Est(data_svm1_rbf, kernel='rbf',C=set_svm1['C'], gamma=set_svm1['gamma'], n_cv=set_svm1['n_cv'], **setting_est)
+                    est_svm1_rbf.Est()
+                    bhat_svm1_rbf[i,:,i_setting_svm1] = est_svm1_rbf.EstResult['bhat']
+                    i_setting_svm1=i_setting_svm1+1
+
                 '''
                 #2stage SVM
                 ##RBF kernel
@@ -543,22 +560,22 @@ if __name__=='__main__':
             print('bhat_svm1_linear:%s' %np.mean(bhat_svm1_linear,axis=0) )
             print('bhat_svm1_rbf:%s' %np.mean(bhat_svm1_rbf,axis=0) )
             #print('bhat_svm2:%s' %np.mean(bhat_svm2,axis=0) )
-            '''
-            result = {'setting_sim':setting_sim,'setting_est':setting_est,'bhat_ols':bhat_ols,'bhat_2sls':bhat_2sls,'bhat_svm1_linear':bhat_svm1_linear,'bhat_svm1_rbf':bhat_svm1_rbf,'bhat_svm2':bhat_svm2,\
-                      'bhat_ols_mean':np.mean(bhat_ols,axis=0) ,'bhat_2sls_mean':np.mean(bhat_2sls,axis=0),'bhat_svm1_linear_mean':np.mean(bhat_svm1_linear,axis=0),'bhat_svm1_rbf_mean':np.mean(bhat_svm1_rbf,axis=0),'bhat_svm2_mean':np.mean(bhat_svm2,axis=0),\
-                      'bhat_ols_std':np.std(bhat_ols,axis=0) ,'bhat_2sls_std':np.std(bhat_2sls,axis=0),'bhat_svm1_linear_std':np.std(bhat_svm1_linear,axis=0),'bhat_svm1_rbf_std':np.std(bhat_svm1_rbf,axis=0),'bhat_svm2_std':np.std(bhat_svm2,axis=0)}
-            '''
             result = {'setting_sim':setting_sim,'setting_est':setting_est,'bhat_ols':bhat_ols,'bhat_2sls':bhat_2sls,'bhat_svm1_linear':bhat_svm1_linear,'bhat_svm1_rbf':bhat_svm1_rbf,'bhat_svm1_rbf_cv5':bhat_svm1_rbf_cv5,\
                       'bhat_ols_mean':np.mean(bhat_ols,axis=0) ,'bhat_2sls_mean':np.mean(bhat_2sls,axis=0),'bhat_svm1_linear_mean':np.mean(bhat_svm1_linear,axis=0),'bhat_svm1_rbf_mean':np.mean(bhat_svm1_rbf,axis=0),'bhat_svm1_rbf_cv5_mean':np.mean(bhat_svm1_rbf_cv5,axis=0),\
                       'bhat_ols_std':np.std(bhat_ols,axis=0) ,'bhat_2sls_std':np.std(bhat_2sls,axis=0),'bhat_svm1_linear_std':np.std(bhat_svm1_linear,axis=0),'bhat_svm1_rbf_std':np.std(bhat_svm1_rbf,axis=0),'bhat_svm1_rbf_cv5_std':np.std(bhat_svm1_rbf_cv5,axis=0)}
             
+            '''
+            result = {'setting_sim':setting_sim,'setting_est':setting_est,'bhat_ols':bhat_ols,'bhat_2sls':bhat_2sls,'bhat_svm1_linear':bhat_svm1_linear,'bhat_svm1_rbf':bhat_svm1_rbf,'bhat_svm1_rbf_cv5':bhat_svm1_rbf_cv5,\
+                      'bhat_ols_mean':np.mean(bhat_ols,axis=0) ,'bhat_2sls_mean':np.mean(bhat_2sls,axis=0),'bhat_svm1_linear_mean':np.mean(bhat_svm1_linear,axis=0),'bhat_svm1_rbf_mean':np.mean(bhat_svm1_rbf,axis=0),'bhat_svm1_rbf_cv5_mean':np.mean(bhat_svm1_rbf_cv5,axis=0),\
+                      'bhat_ols_std':np.std(bhat_ols,axis=0) ,'bhat_2sls_std':np.std(bhat_2sls,axis=0),'bhat_svm1_linear_std':np.std(bhat_svm1_linear,axis=0),'bhat_svm1_rbf_std':np.std(bhat_svm1_rbf,axis=0),'bhat_svm1_rbf_cv5_std':np.std(bhat_svm1_rbf_cv5,axis=0)}
+            '''
             results_all.append(result)
     end = time.time()
     time_calc = end-start
     print('Total Time:'+str(time_calc))
     DateCalc=datetime.date.today().strftime('%b-%d-%Y')
     np.save('results_all_'+DateCalc+'.npy',results_all)
-    
+    '''
     #Generate table
     OLS=[]
     TSLS=[]
@@ -579,7 +596,7 @@ if __name__=='__main__':
     df = pd.DataFrame( results_dict, index=df_index )
     with open('SVM_results_table_'+DateCalc+'.tex','w') as output:
         output.write(df.to_latex())
-        
+    ''' 
     
 
         
