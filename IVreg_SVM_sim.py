@@ -411,13 +411,13 @@ if __name__=='__main__':
     
 
     setting_sim_temp={}
-    setting_sim_temp['n']=[100,250,500, 2000]
+    setting_sim_temp['n']=[100,250,1000,2000]
     setting_sim_temp['mis']=[0]        
     setting_sim_temp['simpoly']=[1]        
     setting_sim_temp['estpoly']=[1]        
     setting_sim_temp['alpha']=[0]
     setting_sim_temp['N_inst']=[10]                
-    setting_sim_temp['N_char']=[5]
+    setting_sim_temp['N_char']=[3]
     
     #setting_sim_temp['add_const_z']=[False]
     #setting_sim_temp['add_const_x']=[False]
@@ -432,7 +432,8 @@ if __name__=='__main__':
     #setting_sim_temp['ivfunc']=['linear']
     #setting_sim_temp['ivpoly_coeff'] =[np.array([1.]),np.array([1.,0.,-.52,0.,.016])]
     setting_sim_temp['ivpoly'] = [1,3]           
-    setting_sim_temp['ivpoly_coeff'] = ['random']       
+    setting_sim_temp['ivpoly_coeff'] = ['random']
+    setting_sim_temp['ivpoly_coeff_var'] = [5.]
     #setting_sim['ivpoly_coeff'] =np.array([1.])       
     #Panel Data
     setting_sim_temp['iv_RC']=[False]
@@ -475,7 +476,7 @@ if __name__=='__main__':
     sys.exit()
     '''
     results_all=[]
-    rep = 100
+    rep = 10
     start=time.time()
     for setting_est in setting_ests:
         for setting_sim in setting_sims:
