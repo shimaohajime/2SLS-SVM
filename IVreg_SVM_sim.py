@@ -411,7 +411,7 @@ if __name__=='__main__':
     
 
     setting_sim_temp={}
-    setting_sim_temp['n']=[500, 2000]
+    setting_sim_temp['n']=[100,250,500, 2000]
     setting_sim_temp['mis']=[0]        
     setting_sim_temp['simpoly']=[1]        
     setting_sim_temp['estpoly']=[1]        
@@ -431,11 +431,11 @@ if __name__=='__main__':
     setting_sim_temp['endog'] = [np.array([0])]
     #setting_sim_temp['ivfunc']=['linear']
     #setting_sim_temp['ivpoly_coeff'] =[np.array([1.]),np.array([1.,0.,-.52,0.,.016])]
-    setting_sim_temp['ivpoly'] = [3]           
+    setting_sim_temp['ivpoly'] = [1,3]           
     setting_sim_temp['ivpoly_coeff'] = ['random']       
     #setting_sim['ivpoly_coeff'] =np.array([1.])       
     #Panel Data
-    setting_sim_temp['iv_RC']=[True]
+    setting_sim_temp['iv_RC']=[False]
     setting_sim_temp['n_ind']=[10]
     setting_sim_temp['iv_RC_var']=[1.]
     
@@ -458,8 +458,8 @@ if __name__=='__main__':
     setting_est_2sls_temp = {}
     setting_est_2sls_temp['poly'] = [1]
     setting_est_svm1_temp = {}
-    setting_est_svm1_temp['C'] = [[10],[10e4],[10,10e2,10e3,10e4]]
-    setting_est_svm1_temp['gamma'] = [[1.],[10e-4],[1.,.1,10e-2,10e-3,10e-4]]
+    setting_est_svm1_temp['C'] = [[10],[10e3],[10,10e2,10e3]]
+    setting_est_svm1_temp['gamma'] = [[1.],[10e-3],[1.,.1,10e-2,10e-3]]
     setting_est_svm1_temp['n_cv'] = [3]
     
     setting_est_ols = model_selection.ParameterGrid(setting_est_ols_temp)
@@ -475,7 +475,7 @@ if __name__=='__main__':
     sys.exit()
     '''
     results_all=[]
-    rep = 2
+    rep = 100
     start=time.time()
     for setting_est in setting_ests:
         for setting_sim in setting_sims:
@@ -557,12 +557,14 @@ if __name__=='__main__':
             print(setting_est)
             print('bhat_ols:%s' %np.mean(bhat_ols,axis=0) )    
             print('bhat_2sls:%s' %np.mean(bhat_2sls,axis=0) )
-            print('bhat_svm1_linear:%s' %np.mean(bhat_svm1_linear,axis=0) )
+            #print('bhat_svm1_linear:%s' %np.mean(bhat_svm1_linear,axis=0) )
             print('bhat_svm1_rbf:%s' %np.mean(bhat_svm1_rbf,axis=0) )
             #print('bhat_svm2:%s' %np.mean(bhat_svm2,axis=0) )
-            result = {'setting_sim':setting_sim,'setting_est':setting_est,'bhat_ols':bhat_ols,'bhat_2sls':bhat_2sls,'bhat_svm1_linear':bhat_svm1_linear,'bhat_svm1_rbf':bhat_svm1_rbf,'bhat_svm1_rbf_cv5':bhat_svm1_rbf_cv5,\
-                      'bhat_ols_mean':np.mean(bhat_ols,axis=0) ,'bhat_2sls_mean':np.mean(bhat_2sls,axis=0),'bhat_svm1_linear_mean':np.mean(bhat_svm1_linear,axis=0),'bhat_svm1_rbf_mean':np.mean(bhat_svm1_rbf,axis=0),'bhat_svm1_rbf_cv5_mean':np.mean(bhat_svm1_rbf_cv5,axis=0),\
-                      'bhat_ols_std':np.std(bhat_ols,axis=0) ,'bhat_2sls_std':np.std(bhat_2sls,axis=0),'bhat_svm1_linear_std':np.std(bhat_svm1_linear,axis=0),'bhat_svm1_rbf_std':np.std(bhat_svm1_rbf,axis=0),'bhat_svm1_rbf_cv5_std':np.std(bhat_svm1_rbf_cv5,axis=0)}
+            result = {'setting_sim':setting_sim,'setting_est':setting_est,\
+            'setting_est_ols':setting_est_ols,'setting_est_2sls':setting_est_2sls,'setting_est_svm1':setting_est_svm1,\
+            'bhat_ols':bhat_ols,'bhat_2sls':bhat_2sls,'bhat_svm1_rbf':bhat_svm1_rbf,\
+            'bhat_ols_mean':np.mean(bhat_ols,axis=0) ,'bhat_2sls_mean':np.mean(bhat_2sls,axis=0),'bhat_svm1_rbf_mean':np.mean(bhat_svm1_rbf,axis=0),\
+            'bhat_ols_std':np.std(bhat_ols,axis=0) ,'bhat_2sls_std':np.std(bhat_2sls,axis=0),'bhat_svm1_rbf_std':np.std(bhat_svm1_rbf,axis=0)}
             
             '''
             result = {'setting_sim':setting_sim,'setting_est':setting_est,'bhat_ols':bhat_ols,'bhat_2sls':bhat_2sls,'bhat_svm1_linear':bhat_svm1_linear,'bhat_svm1_rbf':bhat_svm1_rbf,'bhat_svm1_rbf_cv5':bhat_svm1_rbf_cv5,\
