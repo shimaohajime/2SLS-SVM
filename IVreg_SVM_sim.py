@@ -31,7 +31,9 @@ class IVreg_sim:
                  alpha=0., N_inst=10, N_char=5,\
                  var_eps_x=1., var_eps_y=1., var_eps_xy=3.,\
                  mean_z=1., var_z=1., add_const_x=True, add_const_z=True,\
-                 ivpoly=1,ivpoly_coeff='random',ivpoly_coeff_var=1.,ivpoly_coeff_mean=0., savedata=0,\
+                 ivpoly=1, ivpoly_interaction=False, ivpoly_coeff='random',ivpoly_coeff_var=1.,ivpoly_coeff_mean=0.,\
+                 ivpoly_coeff_mean_order = [3.,.5,.3], ivpoly_coeff_var_order = [1.,.5,.1],\
+                 savedata=0,\
                  iv_RC=False, n_ind=10, iv_RC_var=1.  #Panel Data
                  ):
         self.iv_RC=iv_RC
@@ -68,11 +70,13 @@ class IVreg_sim:
         self.add_const_z = add_const_z
         
         #self.ivpoly_coeff=np.repeat(ivpoly_coeff, self.N_inst)
+        self.ivpoly_interaction = ivpoly_interaction
         self.ivpoly_coeff = ivpoly_coeff
         if ivpoly_coeff=='random':
             self.ivpoly_coeff_var = ivpoly_coeff_var
-            self.ivpoly_coeff_mean = ivpoly_coeff_mean
-            
+        self.ivpoly_coeff_mean = ivpoly_coeff_mean
+        self.ivpoly_coeff_mean_order=ivpoly_coeff_mean_order
+        self.ivpoly_coeff_var_order=ivpoly_coeff_var_order 
         
     def Sim(self):
         if self.mis==2:
@@ -83,9 +87,20 @@ class IVreg_sim:
             alpha = 0.
                     
         z = self.mean_z+np.random.normal(size=[self.n,self.N_inst])*np.sqrt( self.var_z)
+        '''
         eps_x = np.random.normal(size=[self.n, self.N_char]) * np.sqrt(self.var_eps_x)
         eps_xy = np.random.normal(size=[self.n, self.N_char])* np.sqrt(self.var_eps_xy)
         eps_y = np.random.normal(size=self.n)* np.sqrt(self.var_eps_y)
+        '''
+        
+        sig_error = np.identity(self.N_char+1)*np.sqrt(self.var_eps_x)
+        sig_error[0,0]  = np.sqrt(self.var_eps_y)
+        sig_error[0,1:] = np.sqrt(self.var_eps_xy)
+        sig_error[1:,0] = np.sqrt(self.var_eps_xy)
+        mean_error = np.zeros(sig_error.shape[0])
+        errors = np.random.multivariate_normal(mean=mean_error,cov=sig_error,size=self.n)
+        eps_y = errors[:,0]
+        eps_x = errors[:,1:]
         
         '''
         z_poly=z        
@@ -97,8 +112,15 @@ class IVreg_sim:
         if self.add_const_z:
             z_poly  = np.c_[np.ones(self.n), z_poly]
         '''
-        genpoly = preprocessing.PolynomialFeatures(degree=self.ivpoly, include_bias=self.add_const_z)
-        z_poly = genpoly.fit_transform(z)
+        if self.ivpoly_interaction==True:
+            genpoly = preprocessing.PolynomialFeatures(degree=self.ivpoly, include_bias=self.add_const_z)
+            z_poly = genpoly.fit_transform(z)
+        if self.ivpoly_interaction==False:
+            z_poly=z        
+            for i in range(1,self.ivpoly):
+                z_poly=np.c_[z_poly, z**i]
+            if self.add_const_z:
+                z_poly = np.c_[np.ones(self.n),z_poly]            
         self.N_inst_total = z_poly.shape[1]
         '''
         if self.ivpoly_coeff is None:
@@ -108,11 +130,35 @@ class IVreg_sim:
             x_data =  np.repeat( np.dot(z_poly,self.ivpoly_coeff),  self.N_char ).reshape([self.n, self.N_char]) +eps_x         
         x_data=x_data+eps_xy*np.in1d(np.arange(self.N_char), self.endog)
         '''
-        if self.ivpoly_coeff is 'random':
-            self.ivpoly_coeff = self.ivpoly_coeff_mean + np.random.normal(size=self.N_inst_total)*np.sqrt(self.ivpoly_coeff_var)
-        if self.ivpoly_coeff is 'one':
-            self.ivpoly_coeff = np.ones(self.N_inst_total)
-        x_data =  np.repeat( np.dot(z_poly,self.ivpoly_coeff),  self.N_char ).reshape([self.n, self.N_char]) +eps_x
+        
+        if self.ivpoly_coeff in ['random', 'one']:
+            if self.ivpoly_interaction==True:
+                temp = np.ones(self.N_inst)*2
+                temp2 = genpoly.fit_transform([temp]).flatten()
+            elif self.ivpoly_interaction==False:
+                temp2 = np.array([])
+                for i in range(0, self.ivpoly):
+                    temp2 = np.append( temp2, np.ones(self.N_inst)*(2**(i+1) ) )
+                if self.add_const_z:
+                    temp2 = np.insert(temp2,0,1)
+            if self.ivpoly_coeff is 'random':
+                #self.ivpoly_coeff = self.ivpoly_coeff_mean + np.random.normal(size=self.N_inst_total)*np.sqrt(self.ivpoly_coeff_var)
+                self.ivpoly_coeff = np.zeros(self.N_inst_total)                                    
+                for i in range(self.ivpoly+self.add_const_z):
+                    if i==0:
+                        self.ivpoly_coeff[temp2==(2**i)] =  np.random.normal(loc=self.ivpoly_coeff_mean_order[i], size=np.sum( temp2==2**i ), scale=np.sqrt(self.ivpoly_coeff_var_order[i]))
+                    else:                                      
+                        self.ivpoly_coeff[temp2==(2**i)] =  np.random.normal(loc=self.ivpoly_coeff_mean_order[i-1], size=np.sum( temp2==2**i ), scale=np.sqrt(self.ivpoly_coeff_var_order[i-1]))                    
+            elif self.ivpoly_coeff is 'one':
+                #self.ivpoly_coeff = np.ones(self.N_inst_total)*self.ivpoly_coeff_mean
+                self.ivpoly_coeff = np.zeros(self.N_inst_total)                                    
+                for i in range(self.ivpoly+self.add_const_z):
+                    if i==0:
+                        self.ivpoly_coeff[temp2==(2**i)] =  self.ivpoly_coeff_mean_order[i]
+                    else:                                      
+                        self.ivpoly_coeff[temp2==(2**i)] =  self.ivpoly_coeff_mean_order[i-1]
+
+        x_data =  np.repeat( np.dot(z_poly, self.ivpoly_coeff),  self.N_char ).reshape([self.n, self.N_char]) +eps_x
             
         if self.iv_RC:
             RC = np.random.multivariate_normal(np.zeros(z_poly.shape[1]), np.sqrt(self.iv_RC_var)*np.eye( z_poly.shape[1] ),  size=self.n_ind)
@@ -130,7 +176,8 @@ class IVreg_sim:
 
         y = np.sum(x_poly,axis=1).flatten() +alpha*z[:,-1]
 
-        y=y+eps_y+np.mean(eps_xy,axis=1)
+        #y=y+eps_y+np.mean(eps_xy,axis=1)
+        y=y+eps_y
             
         x=x_data        
         for i in range(2,self.estpoly+1):
@@ -177,8 +224,6 @@ class IVreg_sim:
             c = a*b
             groupid_dum[c] = 1        
         return groupid_dum
-
-        
         
 class IVreg_1stSVR_Est:
     def __init__(self, Data, add_const_x, iv_RC, endg_col, kernel, n_cv=3,C=[10,100,1000,10000],gamma= [1.,.1,.01,.001,.0001], **kwargs):
@@ -192,14 +237,12 @@ class IVreg_1stSVR_Est:
             self.iv = np.c_[np.ones(self.n), self.iv]
         if iv_RC==True:
             self.iv = np.c_[self.iv, Data['dummy']]
-            
-        
         self.endg_col = endg_col
-        self.exog_col = np.delete( np.arange(self.n_char), self.endg_col)
-        
+        self.exog_col = np.delete( np.arange(self.n_char), self.endg_col)        
         self.IV = np.c_[ self.x[:,self.exog_col],self.iv ]
         self.n_IV = self.IV.shape[1]
-
+        if C==['n**(-3/4)']:
+            C=[self.n**(-3/4)]
         if kernel=='rbf':
             self.param_grid = [\
             {'C': C, 'gamma': gamma, 'kernel': [ kernel ]},]
@@ -210,14 +253,14 @@ class IVreg_1stSVR_Est:
             
     def Est(self):
         x_scaler=preprocessing.StandardScaler()
-        #x_scaled=x_scaler.fit_transform(data['x'])
-        x_scaled=self.x        
+        x_scaled=x_scaler.fit_transform(data['x'])
+        #x_scaled=self.x        
         y_scaler=preprocessing.StandardScaler()
-        #y_scaled=y_scaler.fit_transform(data['y'].reshape(-1, 1))        
-        y_scaled=self.y
+        y_scaled=y_scaler.fit_transform(data['y'].reshape(-1, 1))        
+        #y_scaled=self.y
         IV_scaler=preprocessing.StandardScaler()
-        #IV_scaled=self.IV        
-        IV_scaled=IV_scaler.fit_transform(self.IV)
+        IV_scaled=self.IV        
+        #IV_scaled=IV_scaler.fit_transform(self.IV)
          
         self.bhat_svm1=np.zeros(self.n_char)
 
@@ -237,9 +280,7 @@ class IVreg_1stSVR_Est:
 
         
         
-        
-        
-
+    
         
         
         
@@ -403,37 +444,40 @@ class IVreg_GMM_Est:
         bhat_2nd, f2 = self.ivreg_2sls(x,y,z,invA=W2)
         return bhat_2nd,f2,W2
         
-        
-
-
-
+     
 if __name__=='__main__':
-    
+ 
 
     setting_sim_temp={}
-    setting_sim_temp['n']=[100,250,1000,2000]
+    setting_sim_temp['n']=[100,250]
     setting_sim_temp['mis']=[0]        
     setting_sim_temp['simpoly']=[1]        
     setting_sim_temp['estpoly']=[1]        
     setting_sim_temp['alpha']=[0]
     setting_sim_temp['N_inst']=[10]                
-    setting_sim_temp['N_char']=[3]
+    setting_sim_temp['N_char']=[1]
     
     #setting_sim_temp['add_const_z']=[False]
     #setting_sim_temp['add_const_x']=[False]
     setting_sim_temp['var_eps_x']=[1.]
     setting_sim_temp['var_eps_y']=[1.]
-    setting_sim_temp['var_eps_xy']=[3.]
+    setting_sim_temp['var_eps_xy']=[.3,.7]
     setting_sim_temp['var_z']=[1.]
-    setting_sim_temp['mean_z']=[1.]
+    setting_sim_temp['mean_z']=[2.]
 
     #setting_sim['endog'] = np.arange(setting_sim['N_char'])
     setting_sim_temp['endog'] = [np.array([0])]
     #setting_sim_temp['ivfunc']=['linear']
     #setting_sim_temp['ivpoly_coeff'] =[np.array([1.]),np.array([1.,0.,-.52,0.,.016])]
-    setting_sim_temp['ivpoly'] = [1,3]           
-    setting_sim_temp['ivpoly_coeff'] = ['random']
-    setting_sim_temp['ivpoly_coeff_var'] = [5.]
+    setting_sim_temp['ivpoly'] = [1,2,3]
+    setting_sim_temp['ivpoly_interaction'] = [False,True]
+           
+    setting_sim_temp['ivpoly_coeff'] = ['one']
+    #setting_sim_temp['ivpoly_coeff_mean'] = [10.]
+    #setting_sim_temp['ivpoly_coeff_var'] = [.3]
+    setting_sim_temp['ivpoly_coeff_mean_order'] = [[1.,.1,.01]]
+    setting_sim_temp['ivpoly_coeff_var_order'] = [[1.,.1,.01]]
+    
     #setting_sim['ivpoly_coeff'] =np.array([1.])       
     #Panel Data
     setting_sim_temp['iv_RC']=[False]
@@ -451,6 +495,8 @@ if __name__=='__main__':
     setting_sims = model_selection.ParameterGrid(setting_sim_temp)
     setting_ests = model_selection.ParameterGrid(setting_est_temp)
 
+    n_settings_sims = len(list(setting_sims))
+    n_settings_est = len(list(setting_ests))
     n_settings = len(list(setting_sims)) * len(list(setting_ests))
     
     #setting for each method
@@ -459,8 +505,8 @@ if __name__=='__main__':
     setting_est_2sls_temp = {}
     setting_est_2sls_temp['poly'] = [1]
     setting_est_svm1_temp = {}
-    setting_est_svm1_temp['C'] = [[10],[10e3],[10,10e2,10e3]]
-    setting_est_svm1_temp['gamma'] = [[1.],[10e-3],[1.,.1,10e-2,10e-3]]
+    setting_est_svm1_temp['C'] = [[1,10,10e2,10e3]]
+    setting_est_svm1_temp['gamma'] = [[1.,.1,10e-2,10e-3]]
     setting_est_svm1_temp['n_cv'] = [3]
     
     setting_est_ols = model_selection.ParameterGrid(setting_est_ols_temp)
@@ -476,7 +522,13 @@ if __name__=='__main__':
     sys.exit()
     '''
     results_all=[]
-    rep = 10
+    rep = 100
+    
+    i_setting_est = 0
+    i_setting_sim = 0
+    bhat1_ols_all=np.zeros([rep, n_settings_est, n_settings_sims, n_setting_ols])
+    bhat1_2sls_all=np.zeros([rep, n_settings_est, n_settings_sims,n_setting_2sls ])
+    bhat1_svm1_rbf_all=np.zeros([rep, n_settings_est, n_settings_sims,n_setting_svm1 ])
     start=time.time()
     for setting_est in setting_ests:
         for setting_sim in setting_sims:
@@ -498,7 +550,10 @@ if __name__=='__main__':
             bhat_svm1_rbf=np.zeros([rep,setting_sim['N_char']  + setting_est['add_const_x'], n_setting_svm1 ])
             
             for i in range(rep):
-                print('rep: '+str(i))
+                if rep<=50:
+                    print('rep: '+str(i))
+                if rep>50:
+                    print('rep: '+str(i)) if i%50==0 else 0
                 sim = IVreg_sim(**setting_sim)
                 sim.Sim()
                 data = sim.Data
@@ -513,6 +568,7 @@ if __name__=='__main__':
                         bhat_ols[i,:,i_setting_ols] = np.insert(lr1.coef_,0, lr1.intercept_)
                     if setting_est['add_const_x']==False:
                         bhat_ols[i,:,i_setting_ols] = lr1.coef_
+                    bhat1_ols_all[i, i_setting_est, i_setting_sim, i_setting_ols] = lr1.coef_[int(setting_est['add_const_x'])]
                     i_setting_ols=i_setting_ols+1
                 
                 #2sls
@@ -522,6 +578,7 @@ if __name__=='__main__':
                     est_2sls = IVreg_GMM_Est(data_2sls, iv_poly=set_2sls['poly'], **setting_est)
                     est_2sls.Est()
                     bhat_2sls[i,:,i_setting_2sls] = est_2sls.EstResult['bhat']
+                    bhat1_2sls_all[i, i_setting_est, i_setting_sim, i_setting_2sls] = est_2sls.EstResult['bhat'][int(setting_est['add_const_x'])]
                     i_setting_2sls=i_setting_2sls+1
                 
                 #SVM first stage + linear regression second stage
@@ -533,6 +590,7 @@ if __name__=='__main__':
                     est_svm1_rbf = IVreg_1stSVR_Est(data_svm1_rbf, kernel='rbf',C=set_svm1['C'], gamma=set_svm1['gamma'], n_cv=set_svm1['n_cv'], **setting_est)
                     est_svm1_rbf.Est()
                     bhat_svm1_rbf[i,:,i_setting_svm1] = est_svm1_rbf.EstResult['bhat']
+                    bhat1_svm1_rbf_all[i, i_setting_est, i_setting_sim, i_setting_svm1] = est_svm1_rbf.EstResult['bhat'][int(setting_est['add_const_x'])]
                     i_setting_svm1=i_setting_svm1+1
 
                 '''
@@ -554,13 +612,21 @@ if __name__=='__main__':
                 
                 #plt.plot(est_svm2.lin[:,0], est_svm2.y_pred_ME[:,0])
                 '''
-            print(setting_sim)
-            print(setting_est)
+            #print(setting_sim)
+            #print(setting_est)
+            '''
             print('bhat_ols:%s' %np.mean(bhat_ols,axis=0) )    
             print('bhat_2sls:%s' %np.mean(bhat_2sls,axis=0) )
             #print('bhat_svm1_linear:%s' %np.mean(bhat_svm1_linear,axis=0) )
             print('bhat_svm1_rbf:%s' %np.mean(bhat_svm1_rbf,axis=0) )
             #print('bhat_svm2:%s' %np.mean(bhat_svm2,axis=0) )
+            '''
+            print('bhat_ols_bias:%s' %np.mean( np.abs(bhat_ols-1.),axis=0) )    
+            print('bhat_2sls_bias:%s' %np.mean( np.abs(bhat_2sls-1.),axis=0) )
+            print('bhat_svm1_rbf_bias:%s' %np.mean( np.abs(bhat_svm1_rbf-1.),axis=0) )
+
+
+
             result = {'setting_sim':setting_sim,'setting_est':setting_est,\
             'setting_est_ols':setting_est_ols,'setting_est_2sls':setting_est_2sls,'setting_est_svm1':setting_est_svm1,\
             'bhat_ols':bhat_ols,'bhat_2sls':bhat_2sls,'bhat_svm1_rbf':bhat_svm1_rbf,\
@@ -573,11 +639,15 @@ if __name__=='__main__':
                       'bhat_ols_std':np.std(bhat_ols,axis=0) ,'bhat_2sls_std':np.std(bhat_2sls,axis=0),'bhat_svm1_linear_std':np.std(bhat_svm1_linear,axis=0),'bhat_svm1_rbf_std':np.std(bhat_svm1_rbf,axis=0),'bhat_svm1_rbf_cv5_std':np.std(bhat_svm1_rbf_cv5,axis=0)}
             '''
             results_all.append(result)
+            i_setting_sim = i_setting_sim + 1
+        i_setting_est = i_setting_est + 1
     end = time.time()
     time_calc = end-start
     print('Total Time:'+str(time_calc))
     DateCalc=datetime.date.today().strftime('%b-%d-%Y')
     np.save('results_all_'+DateCalc+'.npy',results_all)
+    
+    
     '''
     #Generate table
     OLS=[]
