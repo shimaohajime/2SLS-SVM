@@ -18,12 +18,12 @@ from sklearn import preprocessing
 import pandas as pd
 
 class IVreg_sim:
-    def __init__(self, n=500, mis=0, endog=np.array([0]), simpoly=1, estpoly=1,\
+    def __init__(self, n=100, mis=0, endog=np.array([0]), simpoly=1, estpoly=1,\
                  alpha=0., N_inst=10, N_char=5,\
-                 var_eps_x=1., var_eps_y=1., var_eps_xy=3.,\
-                 mean_z=1., var_z=1., add_const_x=True, add_const_z=True,\
+                 var_eps_x=1., var_eps_y=1., var_eps_xy=.3,\
+                 mean_z=1., var_z=1., add_const_x=False, add_const_z=False,reg2nd_coeff=None,\
                  ivpoly=1, ivpoly_interaction=False, ivpoly_coeff='random',ivpoly_coeff_var=1.,ivpoly_coeff_mean=0.,\
-                 ivpoly_coeff_mean_order = [3.,.5,.3], ivpoly_coeff_var_order = [1.,.5,.1],\
+                 ivpoly_coeff_mean_order = [1.,.1,.01], ivpoly_coeff_var_order = [1.,.1,.01],\
                  savedata=0,\
                  iv_RC=False, n_ind=10, iv_RC_var=1.  #Panel Data
                  ):
@@ -59,6 +59,8 @@ class IVreg_sim:
         
         self.add_const_x = add_const_x
         self.add_const_z = add_const_z
+        
+        self.reg2nd_coeff = reg2nd_coeff
         
         #self.ivpoly_coeff=np.repeat(ivpoly_coeff, self.N_inst)
         self.ivpoly_interaction = ivpoly_interaction
@@ -141,15 +143,17 @@ class IVreg_sim:
             self.RC3=np.repeat( np.sum(RC*z_poly,axis=1), self.N_char).reshape([self.n,-1])
             x_data = x_data + np.repeat( np.sum(RC*z_poly,axis=1), self.N_char).reshape([self.n,-1])
 
-        x_poly=x_data        
+        x_poly=x_data     
         for i in range(2,self.simpoly+1):
             x_poly=np.c_[x_poly, x_data**i]
         if self.add_const_x:
             x_poly = np.c_[np.ones(self.n),x_poly]
+        self.x_poly = x_poly
+        try:
+            y = np.dot(x_poly, self.reg2nd_coeff)+alpha*z[:,-1]
+        except:
+            y = np.sum(x_poly,axis=1).flatten() +alpha*z[:,-1]
 
-        y = np.sum(x_poly,axis=1).flatten() +alpha*z[:,-1]
-
-        #y=y+eps_y+np.mean(eps_xy,axis=1)
         y=y+eps_y
             
         x=x_data        
@@ -221,7 +225,8 @@ class IVreg_1stSVR_Est:
             
             gridsearch = model_selection.GridSearchCV(svr_rbf,param_grid=self.param_grid,refit=True, cv=self.n_cv)
             gridsearch.fit(IV_scaled,x_scaled[:,j])
-            x_pred[:,j]=gridsearch.predict(IV_scaled)  
+            x_pred[:,j]=gridsearch.predict(IV_scaled)
+        self.x_pred = x_pred
         self.error_1ststage = (x_pred - x_scaled)[:,self.endg_col]
         
         print(gridsearch.best_estimator_)
