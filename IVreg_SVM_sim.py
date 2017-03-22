@@ -201,21 +201,19 @@ class IVreg_1stSVR_Est:
         if kernel=='linear':
             self.param_grid = [\
             {'C': C, 'kernel': [ kernel ]},]
-        self.n_cv=n_cv
-            
+        self.n_cv=n_cv            
     def Est(self):
         x_scaler=preprocessing.StandardScaler()
-        x_scaled=x_scaler.fit_transform(data['x'])
-        #x_scaled=self.x        
+        #x_scaled=x_scaler.fit_transform(self.x)
+        x_scaled=self.x        
         y_scaler=preprocessing.StandardScaler()
-        y_scaled=y_scaler.fit_transform(data['y'].reshape(-1, 1))        
-        #y_scaled=self.y
+        #y_scaled=y_scaler.fit_transform(self.y.reshape(-1, 1))        
+        y_scaled=self.y
         IV_scaler=preprocessing.StandardScaler()
         IV_scaled=self.IV        
-        #IV_scaled=IV_scaler.fit_transform(self.IV)
-         
-        self.bhat_svm1=np.zeros(self.n_char)
-
+        #IV_scaled=IV_scaler.fit_transform(self.IV)         
+        self.bhat_svm1 = np.zeros(self.n_char)
+        
         x_pred = np.zeros_like(x_scaled)
         x_pred[:] = x_scaled[:]
         for j in self.endg_col:
@@ -224,10 +222,13 @@ class IVreg_1stSVR_Est:
             gridsearch = model_selection.GridSearchCV(svr_rbf,param_grid=self.param_grid,refit=True, cv=self.n_cv)
             gridsearch.fit(IV_scaled,x_scaled[:,j])
             x_pred[:,j]=gridsearch.predict(IV_scaled)  
+        self.error_1ststage = (x_pred - x_scaled)[:,self.endg_col]
+        
         print(gridsearch.best_estimator_)
         lr2=linear_model.LinearRegression(fit_intercept=False)
         lr2.fit(x_pred,y_scaled)
         self.bhat_svm1 = lr2.coef_
+        self.error_2ndstage = y_scaled - lr2.predict(x_pred)
         self.EstResult = {'bhat':self.bhat_svm1}
 
 class IVreg_2stageSVR_Est:
@@ -295,8 +296,7 @@ class IVreg_2stageSVR_Est:
             x_me[:,i] = self.lin[:,i]
             self.y_pred_ME[:,i] = self.gridsearch_2nd.predict(x_me)
             
-class IVreg_GMM_Est:
-    
+class IVreg_GMM_Est:    
     def __init__(self, Data, add_const_x, endg_col, reg_type, weight_type,iv_poly=1, **kwargs):
     #def __init__(self, Data, **kwargs):
         self.x = Data['x']            
@@ -405,7 +405,7 @@ if __name__=='__main__':
         plt.show()
 
     setting_sim_temp={}
-    setting_sim_temp['n']=[1000]
+    setting_sim_temp['n']=[100]
     setting_sim_temp['mis']=[0]        
     setting_sim_temp['simpoly']=[1]        
     setting_sim_temp['estpoly']=[1]        
@@ -478,7 +478,7 @@ if __name__=='__main__':
     sys.exit()
     '''
     results_all=[]
-    rep = 100
+    rep = 10
     
     i_setting_est = 0
     i_setting_sim = 0
