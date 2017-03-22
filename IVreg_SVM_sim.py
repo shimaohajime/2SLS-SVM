@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+ # -*- coding: utf-8 -*-
 """
 Created on Tue Nov 29 16:54:27 2016
 
@@ -18,15 +18,6 @@ from sklearn import preprocessing
 import pandas as pd
 
 class IVreg_sim:
-    '''
-    def __init__(self, n=500, mis=0, endog=np.array([0]), simpoly=1, estpoly=1,\
-                 alpha=0., N_inst=10, N_char=5,\
-                 var_eps_x=1., var_eps_y=1., var_eps_xy=3.,\
-                 mean_z=1., var_z=1., add_const_x=False, add_const_z=False,\
-                 ivfunc='linear',ivpoly_coeff=np.array([1.,-1.,-1.]) ,savedata=0,\
-                 iv_RC=False, n_ind=10, iv_RC_var=1.  #Panel Data
-                 ):
-    ''' 
     def __init__(self, n=500, mis=0, endog=np.array([0]), simpoly=1, estpoly=1,\
                  alpha=0., N_inst=10, N_char=5,\
                  var_eps_x=1., var_eps_y=1., var_eps_xy=3.,\
@@ -102,16 +93,6 @@ class IVreg_sim:
         eps_y = errors[:,0]
         eps_x = errors[:,1:]
         
-        '''
-        z_poly=z        
-        for i in range(2,self.ivpoly+1):
-            z_poly=np.c_[z_poly, z**i]
-        self.z_poly=z_poly
-        if self.ivfunc=='quad':
-            z_poly = self.QuadPoly_vec(z_poly)
-        if self.add_const_z:
-            z_poly  = np.c_[np.ones(self.n), z_poly]
-        '''
         if self.ivpoly_interaction==True:
             genpoly = preprocessing.PolynomialFeatures(degree=self.ivpoly, include_bias=self.add_const_z)
             z_poly = genpoly.fit_transform(z)
@@ -122,14 +103,6 @@ class IVreg_sim:
             if self.add_const_z:
                 z_poly = np.c_[np.ones(self.n),z_poly]            
         self.N_inst_total = z_poly.shape[1]
-        '''
-        if self.ivpoly_coeff is None:
-            x_data =  np.repeat( np.sum(z_poly,axis=1),  self.N_char).reshape([self.n, self.N_char])+eps_x
-            #x_data =  np.repeat( np.mean(z_poly,axis=1),  self.N_char).reshape([self.n, self.N_char])+eps_x
-        elif self.ivpoly_coeff is not None:
-            x_data =  np.repeat( np.dot(z_poly,self.ivpoly_coeff),  self.N_char ).reshape([self.n, self.N_char]) +eps_x         
-        x_data=x_data+eps_xy*np.in1d(np.arange(self.N_char), self.endog)
-        '''
         
         if self.ivpoly_coeff in ['random', 'one']:
             if self.ivpoly_interaction==True:
@@ -187,27 +160,6 @@ class IVreg_sim:
         if self.iv_RC==True:
             dummy = self.CreateDummy( self.ind )
             self.Data = {'x':x,'y':y,'iv':z,'dummy':dummy}
-    '''
-    def QuadPoly_vec(self,vec_vec):
-        if vec_vec.ndim==1:
-            f = self.QuadPoly(vec_vec)
-            return f
-            
-        rep = vec_vec.shape[0]
-        n = vec_vec.shape[1]
-        i = np.tril_indices(n)[0]
-        j = np.tril_indices(n)[1]
-        n_out = i.shape[0]    
-        ii = np.tile(i,rep)+np.repeat(np.arange(rep)*n, n_out)
-        jj = np.tile(j,rep)
-        
-        b = np.tile(vec_vec, n).reshape([n*rep,n])
-        c = np.repeat(vec_vec, n).reshape([n*rep,n])
-        d = b*c
-        e = d[ii,jj].reshape([rep,n_out])
-        f = np.c_[vec_vec, e]
-        return f
-    '''
     
     def CreateDummy(self,groupid, sparse=0):
         nobs = groupid.size
@@ -278,12 +230,6 @@ class IVreg_1stSVR_Est:
         self.bhat_svm1 = lr2.coef_
         self.EstResult = {'bhat':self.bhat_svm1}
 
-        
-        
-    
-        
-        
-        
 class IVreg_2stageSVR_Est:
     def __init__(self, Data, add_const_x, endg_col, kernel, **kwargs):
         self.x = Data['x']            
@@ -349,7 +295,6 @@ class IVreg_2stageSVR_Est:
             x_me[:,i] = self.lin[:,i]
             self.y_pred_ME[:,i] = self.gridsearch_2nd.predict(x_me)
             
-
 class IVreg_GMM_Est:
     
     def __init__(self, Data, add_const_x, endg_col, reg_type, weight_type,iv_poly=1, **kwargs):
@@ -460,7 +405,7 @@ if __name__=='__main__':
         plt.show()
 
     setting_sim_temp={}
-    setting_sim_temp['n']=[250]
+    setting_sim_temp['n']=[1000]
     setting_sim_temp['mis']=[0]        
     setting_sim_temp['simpoly']=[1]        
     setting_sim_temp['estpoly']=[1]        
@@ -533,7 +478,7 @@ if __name__=='__main__':
     sys.exit()
     '''
     results_all=[]
-    rep = 1000
+    rep = 100
     
     i_setting_est = 0
     i_setting_sim = 0
@@ -544,18 +489,6 @@ if __name__=='__main__':
     for setting_est in setting_ests:
         for setting_sim in setting_sims:
             
-            '''
-            bhat_ols=np.zeros([rep,setting_sim['N_char'] + setting_est['add_const_x'] ])
-            bhat_2sls=np.zeros([rep,setting_sim['N_char']  + setting_est['add_const_x'] ])
-            bhat_svm1_linear=np.zeros([rep,setting_sim['N_char']  + setting_est['add_const_x'] ])
-            bhat_svm1_rbf=np.zeros([rep,setting_sim['N_char']  + setting_est['add_const_x'] ])
-            bhat_svm1_rbf_cv5=np.zeros([rep,setting_sim['N_char']  + setting_est['add_const_x'] ])
-            '''
-            '''
-            lin_svm2 = np.zeros([rep, 50 ,setting_sim['N_char']  + setting_est['add_const_x'] ])
-            y_svm2 = np.zeros([rep, 50 ,setting_sim['N_char']  + setting_est['add_const_x'] ])
-            bhat_svm2=np.zeros([rep,setting_sim['N_char']  + setting_est['add_const_x'] ])
-            '''
             bhat_ols=np.zeros([rep,setting_sim['N_char'] + setting_est['add_const_x'],  n_setting_ols])
             bhat_2sls=np.zeros([rep,setting_sim['N_char']  + setting_est['add_const_x'], n_setting_2sls ])
             bhat_svm1_rbf=np.zeros([rep,setting_sim['N_char']  + setting_est['add_const_x'], n_setting_svm1 ])
@@ -625,13 +558,6 @@ if __name__=='__main__':
                 '''
             #print(setting_sim)
             #print(setting_est)
-            '''
-            print('bhat_ols:%s' %np.mean(bhat_ols,axis=0) )    
-            print('bhat_2sls:%s' %np.mean(bhat_2sls,axis=0) )
-            #print('bhat_svm1_linear:%s' %np.mean(bhat_svm1_linear,axis=0) )
-            print('bhat_svm1_rbf:%s' %np.mean(bhat_svm1_rbf,axis=0) )
-            #print('bhat_svm2:%s' %np.mean(bhat_svm2,axis=0) )
-            '''
             print('bhat_ols_bias:%s' %np.mean( np.abs(bhat_ols-1.),axis=0) )    
             print('bhat_2sls_bias:%s' %np.mean( np.abs(bhat_2sls-1.),axis=0) )
             print('bhat_svm1_rbf_bias:%s' %np.mean( np.abs(bhat_svm1_rbf-1.),axis=0) )
@@ -644,11 +570,6 @@ if __name__=='__main__':
             'bhat_ols_mean':np.mean(bhat_ols,axis=0) ,'bhat_2sls_mean':np.mean(bhat_2sls,axis=0),'bhat_svm1_rbf_mean':np.mean(bhat_svm1_rbf,axis=0),\
             'bhat_ols_std':np.std(bhat_ols,axis=0) ,'bhat_2sls_std':np.std(bhat_2sls,axis=0),'bhat_svm1_rbf_std':np.std(bhat_svm1_rbf,axis=0)}
             
-            '''
-            result = {'setting_sim':setting_sim,'setting_est':setting_est,'bhat_ols':bhat_ols,'bhat_2sls':bhat_2sls,'bhat_svm1_linear':bhat_svm1_linear,'bhat_svm1_rbf':bhat_svm1_rbf,'bhat_svm1_rbf_cv5':bhat_svm1_rbf_cv5,\
-                      'bhat_ols_mean':np.mean(bhat_ols,axis=0) ,'bhat_2sls_mean':np.mean(bhat_2sls,axis=0),'bhat_svm1_linear_mean':np.mean(bhat_svm1_linear,axis=0),'bhat_svm1_rbf_mean':np.mean(bhat_svm1_rbf,axis=0),'bhat_svm1_rbf_cv5_mean':np.mean(bhat_svm1_rbf_cv5,axis=0),\
-                      'bhat_ols_std':np.std(bhat_ols,axis=0) ,'bhat_2sls_std':np.std(bhat_2sls,axis=0),'bhat_svm1_linear_std':np.std(bhat_svm1_linear,axis=0),'bhat_svm1_rbf_std':np.std(bhat_svm1_rbf,axis=0),'bhat_svm1_rbf_cv5_std':np.std(bhat_svm1_rbf_cv5,axis=0)}
-            '''
             results_all.append(result)
             i_setting_sim = i_setting_sim + 1
         i_setting_est = i_setting_est + 1
