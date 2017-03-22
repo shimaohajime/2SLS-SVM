@@ -446,10 +446,21 @@ class IVreg_GMM_Est:
         
      
 if __name__=='__main__':
- 
+    def FitNormal(stat):
+        mu_stat,std_stat = scipy.stats.norm.fit(stat)
+        stat_normal_p = scipy.stats.normaltest(stat)[1]
+        #----
+        plt.hist(stat, bins=150, normed=True)
+        xmin,xmax=plt.xlim()
+        x_axis=np.linspace(xmin,xmax,100)
+        p=scipy.stats.norm.pdf(x_axis,mu_stat,std_stat)
+        plt.plot(x_axis,p,'k',linewidth=2)
+        title = "Test Stat Fit results: mu = %.2f, std = %.2f, p=%.5f" % (mu_stat, std_stat, stat_normal_p)
+        plt.title(title)
+        plt.show()
 
     setting_sim_temp={}
-    setting_sim_temp['n']=[100,250]
+    setting_sim_temp['n']=[250]
     setting_sim_temp['mis']=[0]        
     setting_sim_temp['simpoly']=[1]        
     setting_sim_temp['estpoly']=[1]        
@@ -461,7 +472,7 @@ if __name__=='__main__':
     #setting_sim_temp['add_const_x']=[False]
     setting_sim_temp['var_eps_x']=[1.]
     setting_sim_temp['var_eps_y']=[1.]
-    setting_sim_temp['var_eps_xy']=[.3,.7]
+    setting_sim_temp['var_eps_xy']=[.3]
     setting_sim_temp['var_z']=[1.]
     setting_sim_temp['mean_z']=[2.]
 
@@ -469,8 +480,8 @@ if __name__=='__main__':
     setting_sim_temp['endog'] = [np.array([0])]
     #setting_sim_temp['ivfunc']=['linear']
     #setting_sim_temp['ivpoly_coeff'] =[np.array([1.]),np.array([1.,0.,-.52,0.,.016])]
-    setting_sim_temp['ivpoly'] = [1,2,3]
-    setting_sim_temp['ivpoly_interaction'] = [False,True]
+    setting_sim_temp['ivpoly'] = [3]
+    setting_sim_temp['ivpoly_interaction'] = [True]
            
     setting_sim_temp['ivpoly_coeff'] = ['one']
     #setting_sim_temp['ivpoly_coeff_mean'] = [10.]
@@ -522,7 +533,7 @@ if __name__=='__main__':
     sys.exit()
     '''
     results_all=[]
-    rep = 100
+    rep = 1000
     
     i_setting_est = 0
     i_setting_sim = 0
