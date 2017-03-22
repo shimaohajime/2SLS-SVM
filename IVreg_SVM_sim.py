@@ -584,6 +584,9 @@ if __name__=='__main__':
     DateCalc=datetime.date.today().strftime('%b-%d-%Y')
     np.save('results_all_'+DateCalc+'.npy',results_all)
     
+    np.save('ols_n'+str(setting_sim_temp['n'])+'_ivpoly'+str(setting_sim_temp['ivpoly'])+'_interact'+str(setting_sim_temp['ivpoly_interaction'])+'.npy', bhat1_ols_all)
+    np.save('2sls_n'+str(setting_sim_temp['n'])+'_ivpoly'+str(setting_sim_temp['ivpoly'])+'_interact'+str(setting_sim_temp['ivpoly_interaction'])+'.npy', bhat1_2sls_all)
+    np.save('svm_n'+str(setting_sim_temp['n'])+'_ivpoly'+str(setting_sim_temp['ivpoly'])+'_interact'+str(setting_sim_temp['ivpoly_interaction'])+'.npy', bhat1_svm1_rbf_all)
     
     '''
     #Generate table
